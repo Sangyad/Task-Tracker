@@ -40,6 +40,10 @@ task-tracker/
 | GET    | `/api/tasks`       | none                    | List all tasks             |
 | POST   | `/api/tasks`       | `{ "title": "Buy milk" }` | Add a task                 |
 | DELETE | `/api/tasks/:id`   | none                    | Delete one task            |
+| PATCH  | `/api/tasks/:id`   | `{ "done": true }`      | Mark a task done/not done (v2.0) |
+
+> Version 2.0 (branch `v2`) adds the `done` column, the PATCH route above, and
+> the **Mark as done** button. See [V2.md](V2.md) for details and the migration.
 
 ## Run it locally
 
