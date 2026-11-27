@@ -1,3 +1,4 @@
+/* Task Tracker styles. Vite bundles this file into client/dist on build. */
 :root {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: #1f2937;
@@ -89,29 +90,6 @@ button:hover {
 
 .task-list span {
   overflow-wrap: anywhere;
-}
-
-/* Completed tasks are crossed out. */
-.task-list li.done span {
-  text-decoration: line-through;
-  color: #9ca3af;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.toggle {
-  background: #dcfce7;
-  color: #166534;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-}
-
-.toggle:hover {
-  background: #bbf7d0;
 }
 
 .delete {

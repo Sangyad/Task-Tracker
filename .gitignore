@@ -1,8 +1,13 @@
-# Installed packages (recreated by npm install)
+# Installed packages (large folder, recreated by "npm install")
 node_modules/
 
-# Local secrets (never commit this file)
+# Local secrets (the real database password lives here)
 .env
+.env.local
 
-# Built React files (recreated by npm run build)
+# Built React files (recreated by "npm run build")
 client/dist/
+
+# Editor / OS noise
+.DS_Store
+npm-debug.log*

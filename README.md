@@ -1,170 +1,434 @@
-# Task Tracker
+# Task Tracker — Group 6, WST2 Lesson 4
 
-A small full-stack task tracker built for a school demo about deploying web
-applications. Version 1.0 stores tasks in PostgreSQL, so the list is still there
-after a page refresh.
+A very small full-stack app used to demonstrate **Web Application Deployment and
+Release Management**: build it locally, push it to GitHub, let Render build and
+run it, then release version 2.0 and (if needed) roll back.
 
-## Tech stack
+The app is deliberately simple. There is no TypeScript, no ORM, no Docker and no
+login. Everything fits in a handful of files so each part can be explained out
+loud during the demo.
 
-- **Frontend:** React + Vite (`client/`)
-- **Backend:** Node.js + Express (`server/index.js`)
-- **Database:** PostgreSQL with the `pg` package
-- **Config:** `dotenv`, reading `DATABASE_URL` from `.env`
+---
 
-## Project structure
+## 1. Tech stack
 
-```
-task-tracker/
-  client/            Vite + React app (src/App.jsx is the main page)
-  server/index.js    Express API + static file server
-  package.json       Root scripts and server dependencies
-  .env.example       Example local database connection string
-  .gitignore         node_modules, .env, client/dist
-  README.md
-  DEMO.md            Two intentional break demos for the presentation
-  V2.md              Version 2.0 changes and database migration
-```
+| Layer     | Technology              | Where                        |
+| --------- | ----------------------- | ---------------------------- |
+| Frontend  | React 18 + Vite 6       | `client/`                    |
+| Backend   | Node.js 20+ + Express 4 | `server/index.js`            |
+| Database  | PostgreSQL + `pg`       | Render PostgreSQL (or local) |
+| Config    | `dotenv` + `.env`       | `DATABASE_URL`               |
 
-## Version 1.0 features
+---
 
-- See a list of tasks
-- Add a task with the text box and **Add** button
-- Delete a task with its **Delete** button
-- Tasks are saved in PostgreSQL (not just in the browser)
-- The server creates the `tasks` table on startup if it does not exist
+## 2. Versions and branches
 
-### API
+| Version   | Branch | Git tag  | What it can do                                                        |
+| --------- | ------ | -------- | --------------------------------------------------------------------- |
+| **1.0.0** | `main` | `v1.0.0` | List tasks, add a task, delete a task                                 |
+| **2.0.0** | `v2`   | `v2.0.0` | Everything in 1.0 **plus** a `done` column, `PATCH /api/tasks/:id`, and a **Mark as done** button that strikes the task through |
 
-| Method | Path               | Body                    | Purpose                    |
-| ------ | ------------------ | ----------------------- | -------------------------- |
-| GET    | `/api/tasks`       | none                    | List all tasks             |
-| POST   | `/api/tasks`       | `{ "title": "Buy milk" }` | Add a task                 |
-| DELETE | `/api/tasks/:id`   | none                    | Delete one task            |
-| PATCH  | `/api/tasks/:id`   | `{ "done": true }`      | Mark a task done/not done (v2.0) |
-
-> Version 2.0 (branch `v2`) adds the `done` column, the PATCH route above, and
-> the **Mark as done** button. See [V2.md](V2.md) for details and the migration.
-
-## Run it locally
-
-### 1. Requirements
-
-- Node.js 18 or newer
-- PostgreSQL installed and running
-
-### 2. Clone and install the server dependencies
+`main` is the safe, public, version 1 line. Version 2 is developed on the `v2`
+branch and released by merging it to `main` when the class is ready. See
+[V2.md](V2.md) for the migration and rollback notes.
 
 ```bash
-git clone git@github.com:Sangyad/Task-Tracker.git
-cd task-tracker
-npm install
+git branch          # * main, v2
+git tag             # v1.0.0, v2.0.0
 ```
 
-### 3. Create the local database
+---
+
+## 3. Project structure
+
+```
+Task-Tracker/
+├── client/                     # The React app (frontend)
+│   ├── index.html              # HTML page with <div id="root">
+│   ├── package.json            # React + Vite dependencies
+│   ├── vite.config.js          # Dev proxy: /api -> localhost:3000
+│   └── src/
+│       ├── main.jsx            # Mounts React into index.html
+│       ├── App.jsx             # THE PAGE: list, add, delete
+│       └── index.css           # Styles
+├── server/
+│   └── index.js                # THE BACKEND: API + serves client/dist
+├── .env.example                # Copy to .env (example values only)
+├── .gitignore                  # Excludes node_modules, .env, client/dist
+├── package.json                # THE SCRIPTS + server dependencies
+├── README.md                   # This file
+├── DEMO.md                     # Two intentional deployment errors
+├── V2.md                       # Version 2.0, migration, rollback
+└── DEMO-SCRIPT-CHECKLIST.md    # What to click and say, live
+```
+
+**The three files to point at on screen:** `server/index.js` (backend),
+`client/src/App.jsx` (React page), `package.json` (packages and scripts).
+
+### What is *not* in the repository
+
+| Not uploaded | Why                                                           |
+| ------------ | ------------------------------------------------------------- |
+| `node_modules/` | Very large. It is rebuilt with `npm install` on every machine and on Render. |
+| `.env`       | Holds the real database password (a secret). The repo only has `.env.example`. |
+| `client/dist/` | Generated by `npm run build`. Render builds it during deploy. |
+
+The `.gitignore` file enforces all three. If one of them ever shows up in
+`git status`, the `.gitignore` is wrong.
+
+---
+
+## 4. Run it locally
+
+### 4.1 Requirements
+
+- **Node.js 20 or newer** (`node -v` — enforced by `"engines"` in `package.json`)
+- **PostgreSQL** running on your laptop
+
+### 4.2 Clone and install
+
+```bash
+git clone https://github.com/Sangyad/Task-Tracker.git
+cd Task-Tracker          # the folder name is Task-Tracker (capital T, capital T)
+npm install              # installs express, pg, dotenv
+```
+
+> `npm install` at the root installs only the server packages. The client
+> packages are installed by `npm run build`, or by the command in step 4.5.
+
+### 4.3 Create the database
 
 ```bash
 createdb tasktracker
-```
-
-If `createdb` is not on your PATH, use psql instead:
-
-```bash
+# If createdb is not on your PATH:
 psql -U postgres -c "CREATE DATABASE tasktracker;"
 ```
 
-### 4. Create your `.env` file
+### 4.4 Create `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and change the values to match your PostgreSQL user and password:
+Edit `.env` so it matches your PostgreSQL user and password:
 
 ```
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/tasktracker
 ```
 
-### 5. Run in development (two terminals)
+You do **not** create the `tasks` table by hand. The server runs
+`CREATE TABLE IF NOT EXISTS tasks (...)` every time it starts.
 
-Terminal 1 - Express API on <http://localhost:3000>:
+### 4.5 Development mode (two terminals)
 
 ```bash
+# Terminal 1 - Express API on http://localhost:3000
 npm run dev
-```
 
-Terminal 2 - Vite dev server on <http://localhost:5173>:
-
-```bash
+# Terminal 2 - Vite dev server on http://localhost:5173
 npm install --prefix client   # first time only
 npm run dev:client
 ```
 
-Open <http://localhost:5173>. Vite forwards `/api` requests to the Express
-server, so both servers work together.
+Open <http://localhost:5173>. Vite forwards `/api` requests to Express on port
+3000, so the page and the API work together.
 
-### 6. Build and run the production version locally
+### 4.6 Build and run the production version locally
+
+This is the same thing Render does:
 
 ```bash
-npm run build
-npm start
+npm run build     # installs client deps, creates client/dist
+npm start         # runs node server/index.js on http://localhost:3000
 ```
 
-- `npm run build` installs the client dependencies and builds React into
-  `client/dist`.
-- `npm start` runs `node server/index.js`, which serves `client/dist` and the
-  API on <http://localhost:3000>.
+Open <http://localhost:3000>. There is no Vite server in this mode: Express
+serves the static files in `client/dist` **and** the API.
 
-## Deploy to Render
+---
 
-### 1. Create the database
+## 5. Environment variables
 
-In the Render Dashboard, click **New > Postgres**, create a database, and copy
-its **Internal Database URL**. Keep the web service and the database in the same
-region.
+| Name           | Example                                        | Needed? | Purpose |
+| -------------- | ---------------------------------------------- | ------- | ------- |
+| `DATABASE_URL` | `postgres://user:pass@host:5432/tasktracker`     | **Yes** | Database address. The app prints `DATABASE_URL is not defined` and exits with status 1 if it is missing. |
+| `PORT`         | `3000` locally, set by Render                  | No      | Port to listen on. Render sets it automatically; the code falls back to 3000. |
+| `NODE_ENV`     | `production`                                   | No      | Turns SSL on for `pg`. **Check it on Render** (see 6.3). |
+| `DATABASE_SSL` | `true` / `false`                               | No      | Explicit SSL switch. Overrides `NODE_ENV`. Use `true` if `NODE_ENV` is not set on Render. |
 
-### 2. Create the web service
+Production SSL for `pg` is enabled in `server/index.js` like this:
 
-Click **New > Web Service** and connect this GitHub repository. Use these
-settings:
-
-| Setting            | Value                          |
-| ------------------ | ------------------------------ |
-| **Language**       | Node                           |
-| **Build Command**  | `npm install && npm run build` |
-| **Start Command**  | `npm start`                    |
-| **Environment variable** | `DATABASE_URL` = your Render **Internal Database URL** |
-
-`npm run build` installs the client dependencies and builds React into
-`client/dist`. `npm start` runs `node server/index.js`.
-
-### 3. Environment variables
-
-Add this variable under **Environment**:
-
-```
-DATABASE_URL=postgres://...   (paste the Internal Database URL from Render)
+```js
+const useSSL = process.env.DATABASE_SSL
+  ? process.env.DATABASE_SSL === 'true'
+  : process.env.NODE_ENV === 'production';
 ```
 
-You do **not** need to add `PORT`: Render sets it automatically. Render also
-sets `NODE_ENV=production` at runtime, which turns on SSL for the `pg`
-connection (Render's PostgreSQL requires SSL).
+So SSL is on when `NODE_ENV=production` **or** `DATABASE_SSL=true`. Never put a
+real database URL in the repository; set it in `.env` locally and in the Render
+dashboard online.
 
-### 4. Deploy
+---
 
-Click **Create Web Service**. When the deploy finishes, open the `onrender.com`
-URL. The server creates the `tasks` table on its first start.
+## 6. Deploy to Render (free plan)
 
-> Never commit `.env` or paste a real database URL into a file. Secrets belong
-> in the Render Environment settings.
+### Why Render
 
-## Version 2.0
+- It hosts the **Node backend and the PostgreSQL database together**, so the app
+  and its data live in one place.
+- It **deploys from GitHub**: every push to the connected branch starts a build.
+- The free plan is enough for a class demo (services sleep after inactivity, so
+  the first request can be slow).
 
-See [V2.md](V2.md) for the `done` column, the `PATCH /api/tasks/:id` endpoint,
-the "Mark as done" button, and the safe database migration.
+**The flow:**
 
-## Demo scripts
+```
+laptop (localhost)  --git push-->  GitHub  --webhook-->  Render build + run  -->  public URL
+```
 
-See [DEMO.md](DEMO.md) for two intentional break examples:
+### 6.1 Create the PostgreSQL database FIRST
 
-1. Removing `DATABASE_URL`
-2. Removing the `pg` package from `package.json`
+Do this before the web service, because the web service needs the database URL.
+
+1. Render Dashboard → **New → Postgres**.
+2. Name it (for example `task-tracker-db`), choose the **Free** plan, and pick a
+   region. Remember the region.
+3. Click **Create Database** and wait until it is **Available**.
+4. Open the database → **Connections** (or **Info**) → copy the **Internal
+   Database URL**. It looks like
+   `postgres://user:password@dpg-xxxx-a/tasktracker`.
+
+Keep the web service in the **same region** as the database so the internal URL
+works.
+
+> Internal URL = used by another Render service (fast, private).
+> External URL = for your laptop, needs SSL. For this demo we use the Internal
+> URL, because the web service runs inside Render.
+
+### 6.2 Create the Web Service
+
+1. **New → Web Service** → connect the GitHub repository
+   `Sangyad/Task-Tracker`.
+2. Fill in these settings:
+
+| Setting | Value | What it does |
+| ------- | ----- | ------------ |
+| **Name** | `task-tracker` | The start of the public URL: `task-tracker.onrender.com`. |
+| **Language / Runtime** | `Node` | Tells Render this is a Node app. |
+| **Branch** | `main` | Which git branch is deployed. Version 1 lives on `main`. |
+| **Root Directory** | *(leave blank)* | The repo root, where `package.json` is. |
+| **Build Command** | `npm install && npm run build` | Installs server packages, then installs and builds the React client into `client/dist`. |
+| **Start Command** | `npm start` | Runs `node server/index.js`, which serves `client/dist` and the API. |
+| **Instance Type** | `Free` | No cost; the service sleeps when idle. |
+| **Auto-Deploy** | `Yes` (default) | Every push to `main` triggers a new deploy. |
+
+3. **Do not click Create yet** — add the environment variable first (next step).
+
+### 6.3 Add the environment variables
+
+Still on the setup page, open **Environment** (or **Environment Variables**) and
+add:
+
+```
+DATABASE_URL = postgres://...    ← paste the Internal Database URL
+```
+
+Then **check the list for `NODE_ENV`**:
+
+- If `NODE_ENV=production` is present, SSL is already on.
+- If it is **not** present, add `DATABASE_SSL=true`. Do not assume Render sets
+  `NODE_ENV`; this is a setting you must verify in the dashboard.
+
+`PORT` is not needed. Render injects it and `server/index.js` reads it.
+
+Now click **Create Web Service**. The first deploy starts.
+
+### 6.4 What success looks like at every step
+
+| Step | What to look at | Expected result |
+| ---- | --------------- | --------------- |
+| `npm run build` (local) | your terminal | Ends with `✓ built in ...`; `client/dist/index.html` and `client/dist/assets/` exist. |
+| `npm install` (Render build log) | **Logs** tab of the deploy | No `E404` / `missing` package errors. |
+| `npm run build` (Render build log) | **Logs** tab | `vite build` finishes; Render then says `Build successful`. |
+| `DATABASE_URL` set | Render **Environment** tab | The variable is listed. The start log does **not** say `DATABASE_URL is not defined`. |
+| App creates table | **Logs** tab | `Connected to PostgreSQL; table "tasks" is ready.` |
+| Push to GitHub | **Events** / **Deploys** | A new deploy appears automatically (if Auto-Deploy is on). |
+| Open the public URL | your browser | The Task Tracker page loads with an empty list or the saved tasks. |
+| Add a task, then refresh | your browser | The task is still there, because it is stored in PostgreSQL. |
+
+If the log stops with `DATABASE_URL is not defined`, scroll to
+[DEMO.md](DEMO.md) — that is the first intentional break demo.
+
+---
+
+## 7. Release management
+
+### 7.1 Version numbers: MAJOR.MINOR.PATCH
+
+`MAJOR.MINOR.PATCH` (for example **2.0.0**):
+
+- **MAJOR** — a big change that can break compatibility (V1 → V2 with a database change).
+- **MINOR** — a new feature that keeps compatibility (adding the `done` field).
+- **PATCH** — a small bug fix.
+
+For this demo: `1.0.0` = first release, `2.0.0` = done/mark-as-done release.
+
+### 7.2 Tag the release
+
+A tag is a permanent label on one commit, so a version can always be found and
+redeployed.
+
+```bash
+git checkout v2
+git tag -a v2.0.0 -m "Release 2.0.0: mark tasks as done"
+git push origin v2
+git push origin v2.0.0     # tags are pushed separately
+```
+
+Render redeploys when it sees the new commit on `v2` (or on `main` after the
+merge). A tag alone does not deploy; it marks **which code** was released.
+
+### 7.3 Release 2.0
+
+```bash
+git checkout main
+git merge v2
+git push origin main
+```
+
+Render rebuilds and restarts automatically. The v2 server also runs the safe
+migration on startup (see [V2.md](V2.md)).
+
+### 7.4 Roll back
+
+**Option A — Render, no code change (fastest).**
+Dashboard → the service → **Deploys** → find the last good deploy → **⋯** →
+**Redeploy this deploy**. Render restarts the old build.
+
+**Option B — git revert, then push.**
+Keeps history honest and makes the rollback visible in GitHub.
+
+```bash
+git log --oneline            # find the bad commit
+git revert <commit-hash>     # creates a new commit that undoes it
+git push origin main         # Render deploys the revert
+```
+
+> **Warning: rollback is harder if the database changed.** Code can be
+> redeployed in seconds, but a dropped column is gone unless you have a backup.
+> Our V2 migration only **adds** a column (`done BOOLEAN NOT NULL DEFAULT
+> FALSE`), so the old v1 code still works with a v2 database. That is why this
+> rollback is safe. Always review database changes before a release.
+
+More detail and the exact SQL are in [V2.md](V2.md).
+
+---
+
+## 8. Deployment strategies (simulated)
+
+A free Render web service is **one instance**, so real rolling, blue-green and
+canary traffic splitting are not possible here. These diagrams are drawn on
+paper/slides to explain what the strategies would do on a paid platform. **Do
+not claim the demo is splitting real traffic.**
+
+### Rolling deployment — replace instances one by one
+
+```
+  v1  v1  v1        all users on v1
+  v2  v1  v1        instance 1 updated, health check passes
+  v2  v2  v1        instance 2 updated
+  v2  v2  v2        done: no downtime
+```
+
+- **How it works:** stop one old instance, start a new one, wait until it is
+  healthy, then move to the next.
+- **Difference:** the *same* set of instances is slowly replaced.
+- **Advantage:** needs no extra servers; no downtime if health checks pass.
+- **Limitation:** old and new versions run **at the same time** during the
+  rollover, so the database must work with both. Rolling back means rolling
+  through the instances again.
+
+### Blue-green deployment — two complete environments, switch the router
+
+```
+                 +------------------+
+   users  ---->  |  router / DNS    |
+                 +--------+---------+
+                          |  100% traffic
+                 +--------v---------+       +------------------+
+                 |  BLUE   (v1)     |       |  GREEN   (v2)    |
+                 |  live            |       |  deployed, idle  |
+                 +------------------+       +------------------+
+
+   switch:  100% traffic -> GREEN          BLUE stays ready for instant rollback
+```
+
+- **How it works:** deploy v2 to a second complete environment (green), test it,
+  then point the router at green.
+- **Difference:** traffic moves **all at once**, not instance by instance.
+- **Advantage:** near-instant switch and instant rollback (point back to blue).
+- **Limitation:** costs **double** the infrastructure while both exist, and the
+  switch is all-or-nothing.
+
+### Canary deployment — send a small slice of traffic to the new version
+
+```
+   users ---> [ router ] --95%--> [ v1 ] [ v1 ] [ v1 ]
+                     \---5% ----> [ v2 ]              watch errors + latency
+   then 5% -> 25% -> 50% -> 100% if the canary stays healthy
+```
+
+- **How it works:** release v2 to a small percentage of real users, watch the
+  metrics, then increase the percentage.
+- **Difference:** traffic is split by **percentage**, not by instance.
+- **Advantage:** limits the blast radius — only 5% of users see a bad release.
+- **Limitation:** needs traffic control plus monitoring; two versions run side
+  by side, so the database must support both.
+
+### Side-by-side comparison
+
+| | Instances during deploy | Who sees v2 first | Rollback | Extra cost |
+| --- | --- | --- | --- | --- |
+| **Rolling** | old + new mix | users on updated instances | roll forward/back one by one | none |
+| **Blue-green** | two full environments | nobody until the switch | switch traffic back | ~2x |
+| **Canary** | old + a small new slice | a small % of users | send 0% to the canary | small |
+
+---
+
+## 9. Post-deployment verification checklist
+
+Run these five checks on the **public URL**, not on localhost.
+
+| # | Check | How | What it proves |
+| - | ----- | --- | -------------- |
+| 1 | Page loads | Open `https://task-tracker.onrender.com` | The build worked, `client/dist` is served by Express, and routing is fine. |
+| 2 | Task appears after adding | Type "Demo task", click **Add** | The browser reached the API and `POST /api/tasks` inserted a row. |
+| 3 | Task survives refresh | Press **F5** | The data is in **PostgreSQL**, not just in React state. This is the main proof of a real database connection. |
+| 4 | Logs show no errors | Render → **Logs** | `DATABASE_URL` is correct, SSL works, and the server started cleanly. |
+| 5 | (v2) Mark as done persists | Click **Mark as done**, refresh | `PATCH /api/tasks/:id` works and the safe migration ran. |
+
+Also confirm on the Render **Deploys** page that the newest deploy says
+**Live**, and that its commit hash matches the GitHub commit you just pushed.
+
+---
+
+## 10. Demo documents
+
+- **[DEMO.md](DEMO.md)** — the two intentional deployment errors, with the exact
+  log text and the fix.
+- **[V2.md](V2.md)** — version 2.0, the migration SQL, and rollback notes.
+- **[DEMO-SCRIPT-CHECKLIST.md](DEMO-SCRIPT-CHECKLIST.md)** — a numbered
+  click-and-say script, plus a backup plan if the network fails.
+
+---
+
+## 11. Things to verify on Render's dashboard
+
+Render changes its UI from time to time. Before the demo, confirm:
+
+- The menu labels **New → Postgres** and **New → Web Service** still exist.
+- The database page still shows an **Internal Database URL** under
+  **Connections**.
+- The Environment tab still lists variables and whether `NODE_ENV` is present.
+- The **Deploys** page still has **Redeploy** for an older deploy.
+- The free instance type is still offered, and how long free services sleep.
