@@ -1,0 +1,8 @@
+# Installed packages (recreated by npm install)
+node_modules/
+
+# Local secrets (never commit this file)
+.env
+
+# Built React files (recreated by npm run build)
+client/dist/
