@@ -57,6 +57,26 @@ export default function App() {
     }
   }
 
+  // Flip a task between done and not done.
+  async function toggleTask(task) {
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ done: !task.done }),
+      });
+      if (!response.ok) throw new Error('Could not update task');
+
+      const updatedTask = await response.json();
+      setTasks((current) =>
+        current.map((item) => (item.id === updatedTask.id ? updatedTask : item))
+      );
+      setError('');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <main className="app">
       <h1>Task Tracker</h1>
@@ -80,15 +100,26 @@ export default function App() {
       ) : (
         <ul className="task-list">
           {tasks.map((task) => (
-            <li key={task.id}>
+            <li key={task.id} className={task.done ? 'done' : ''}>
               <span>{task.title}</span>
-              <button
-                className="delete"
-                onClick={() => deleteTask(task.id)}
-                aria-label={`Delete ${task.title}`}
-              >
-                Delete
-              </button>
+              <div className="actions">
+                <button
+                  className="toggle"
+                  onClick={() => toggleTask(task)}
+                  aria-label={`Mark ${task.title} as ${
+                    task.done ? 'not done' : 'done'
+                  }`}
+                >
+                  {task.done ? 'Mark as not done' : 'Mark as done'}
+                </button>
+                <button
+                  className="delete"
+                  onClick={() => deleteTask(task.id)}
+                  aria-label={`Delete ${task.title}`}
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>

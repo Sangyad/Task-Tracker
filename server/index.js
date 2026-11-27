@@ -31,7 +31,7 @@ app.use(express.json());
 app.get('/api/tasks', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, title, created_at FROM tasks ORDER BY id ASC'
+      'SELECT id, title, done, created_at FROM tasks ORDER BY id ASC'
     );
     res.json(result.rows);
   } catch (err) {
@@ -50,7 +50,7 @@ app.post('/api/tasks', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO tasks (title) VALUES ($1) RETURNING id, title, created_at',
+      'INSERT INTO tasks (title) VALUES ($1) RETURNING id, title, done, created_at',
       [title]
     );
     res.status(201).json(result.rows[0]);
@@ -82,6 +82,36 @@ app.delete('/api/tasks/:id', async (req, res) => {
   }
 });
 
+// PATCH /api/tasks/:id - mark a task done or not done. Body: { "done": true }
+app.patch('/api/tasks/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { done } = req.body;
+
+  if (!Number.isInteger(id) || id < 1) {
+    return res.status(400).json({ error: 'Invalid task id' });
+  }
+
+  if (typeof done !== 'boolean') {
+    return res.status(400).json({ error: 'done must be true or false' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE tasks SET done = $1 WHERE id = $2 RETURNING id, title, done, created_at',
+      [done, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('PATCH /api/tasks/:id failed:', err.message);
+    res.status(500).json({ error: 'Could not update task' });
+  }
+});
+
 // Serve the built React files from client/dist.
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
@@ -102,9 +132,16 @@ async function start() {
       CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        done BOOLEAN NOT NULL DEFAULT FALSE
       )
     `);
+
+    // Version 1 databases already have a tasks table, so add the new column.
+    // Existing rows get done = false and no data is deleted.
+    await pool.query(
+      'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS done BOOLEAN NOT NULL DEFAULT FALSE'
+    );
 
     app.listen(PORT, () => {
       console.log(`Task Tracker server running on http://localhost:${PORT}`);
